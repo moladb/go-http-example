@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/moladb/ginprom"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const maxDataLen int = 512 * 1024 // 512K
@@ -89,13 +91,13 @@ func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
 }
 
 func (s *Server) installHandlers(enableProfile bool) {
-	s.router.GET("/version", WithMetrics("GET", "/version", s.GetVersion))
+	s.router.GET("/version", ginprom.WithMetrics("/version", s.GetVersion))
 
-	s.router.GET("/v1/kv/*key", WithMetrics("GET", "/v1/kv", s.GetKVs))
+	s.router.GET("/v1/kv/*key", ginprom.WithMetrics("/v1/kv", s.GetKVs))
 
-	s.router.PUT("/v1/kv/*key", WithMetrics("PUT", "/v1/kv", s.PutKV))
+	s.router.PUT("/v1/kv/*key", ginprom.WithMetrics("/v1/kv", s.PutKV))
 
-	s.router.DELETE("/v1/kv/*key", WithMetrics("DELETE", "/v1/kv", s.DeleteKVs))
+	s.router.DELETE("/v1/kv/*key", ginprom.WithMetrics("/v1/kv", s.DeleteKVs))
 
 	if enableProfile {
 		s.router.GET("/debug/pprof", pprofHandler(pprof.Index))
@@ -103,4 +105,11 @@ func (s *Server) installHandlers(enableProfile bool) {
 		s.router.GET("/debug/pprof/symbol", pprofHandler(pprof.Symbol))
 		s.router.GET("/debug/pprof/cmdline", pprofHandler(pprof.Cmdline))
 	}
+
+	s.router.GET("/metrics", func() gin.HandlerFunc {
+		handler := promhttp.Handler()
+		return func(c *gin.Context) {
+			handler.ServeHTTP(c.Writer, c.Request)
+		}
+	}())
 }

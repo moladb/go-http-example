@@ -5,3 +5,9 @@ import:
 - package: github.com/hashicorp/go-memdb
 - package: github.com/urfave/cli
   version: ^1.20.0
+- package: github.com/prometheus/client_golang
+  version: ^0.9.0-pre1
+  subpackages:
+  - prometheus
+- package: github.com/moladb/ginprom
+  version: v0.0.1-beta.0

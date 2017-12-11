@@ -1,22 +1,12 @@
 package rest
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/moladb/go-http-example/pkg/version"
 )
-
-func WithMetrics(method string, api string, handle gin.HandlerFunc) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// start metric
-		fmt.Println("Method:", method, ", Handler:", api)
-		handle(c)
-		// done metric
-	}
-}
 
 func (s *Server) GetVersion(c *gin.Context) {
 	c.JSON(http.StatusOK,
@@ -32,6 +22,7 @@ func (s *Server) GetKVs(c *gin.Context) {
 	val, ok := s.getKV(key)
 	if ok {
 		c.JSON(http.StatusOK, gin.H{"value": val})
+		return
 	}
 	c.Status(http.StatusNotFound)
 }
