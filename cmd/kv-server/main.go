@@ -57,6 +57,7 @@ func main() {
 		}()
 
 		if err := srv.Run(); err != nil {
+			fmt.Println("err:", err)
 			os.Exit(1)
 		}
 		return nil

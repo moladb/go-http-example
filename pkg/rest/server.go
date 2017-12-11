@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/moladb/go-http-example/pkg/version"
+	"github.com/moladb/ginprom"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const maxDataLen int = 512 * 1024 // 512K
@@ -90,46 +91,13 @@ func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
 }
 
 func (s *Server) installHandlers(enableProfile bool) {
-	s.router.GET("/version", func(c *gin.Context) {
-		c.JSON(http.StatusOK,
-			gin.H{
-				"version":    version.VERSION,
-				"build_time": version.BUILDDATE,
-				"go_version": version.GOVERSION,
-			})
-	})
+	s.router.GET("/version", ginprom.WithMetrics("/version", s.GetVersion))
 
-	s.router.GET("/v1/kv/*key", func(c *gin.Context) {
-		key := c.Param("key")
-		val, ok := s.getKV(key)
-		if ok {
-			c.JSON(http.StatusOK, gin.H{"value": val})
-		}
-		c.Status(http.StatusNotFound)
-	})
+	s.router.GET("/v1/kv/*key", ginprom.WithMetrics("/v1/kv", s.GetKVs))
 
-	s.router.PUT("/v1/kv/*key", func(c *gin.Context) {
-		key := c.Param("key")
-		var val struct {
-			Value string `json:"value" binding:"required"`
-		}
-		if err := c.BindJSON(&val); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		if len(val.Value) > maxDataLen {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "exceed max_data_len(512K)"})
-			return
-		}
-		s.putKV(key, val.Value)
-		c.Status(http.StatusOK)
-	})
+	s.router.PUT("/v1/kv/*key", ginprom.WithMetrics("/v1/kv", s.PutKV))
 
-	s.router.DELETE("/v1/kv/*key", func(c *gin.Context) {
-		key := c.Param("key")
-		s.deleteKV(key)
-		c.Status(http.StatusOK)
-	})
+	s.router.DELETE("/v1/kv/*key", ginprom.WithMetrics("/v1/kv", s.DeleteKVs))
 
 	if enableProfile {
 		s.router.GET("/debug/pprof", pprofHandler(pprof.Index))
@@ -137,4 +105,11 @@ func (s *Server) installHandlers(enableProfile bool) {
 		s.router.GET("/debug/pprof/symbol", pprofHandler(pprof.Symbol))
 		s.router.GET("/debug/pprof/cmdline", pprofHandler(pprof.Cmdline))
 	}
+
+	s.router.GET("/metrics", func() gin.HandlerFunc {
+		handler := promhttp.Handler()
+		return func(c *gin.Context) {
+			handler.ServeHTTP(c.Writer, c.Request)
+		}
+	}())
 }
