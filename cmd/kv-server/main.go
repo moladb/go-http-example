@@ -22,6 +22,7 @@ import (
 	"os/signal"
 
 	"github.com/moladb/go-http-example/cmd/kv-server/service/v0"
+	"github.com/moladb/go-http-example/cmd/kv-server/service/v1"
 	"github.com/moladb/go-http-example/pkg/rest"
 	"github.com/moladb/go-http-example/pkg/version"
 	"github.com/urfave/cli"
@@ -57,6 +58,7 @@ func main() {
 
 		// register services
 		srv.RegisterService(v0.NewKVService())
+		srv.RegisterService(v1.NewKVService())
 
 		go func() {
 			quit := make(chan os.Signal, 1)

@@ -12,9 +12,6 @@ import (
 const maxDataLen int = 512 * 1024
 
 type KVService struct {
-	//config Config
-	//router  *gin.Engine
-	//httpSrv *http.Server
 	kvs    map[string]string
 	kvLock sync.RWMutex
 }
