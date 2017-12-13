@@ -26,8 +26,8 @@ func NewServer(config Config) *Server {
 		router: gin.Default(),
 	}
 	if config.EnableAPIMetrics {
-		s.decorateHandler = func(apiGroup, api string, h gin.HandlerFunc) gin.HandlerFunc {
-			path := apiGroup + api
+		s.decorateHandler = func(apiGroup, resource string, h gin.HandlerFunc) gin.HandlerFunc {
+			path := apiGroup + resource
 			return ginprom.WithMetrics(path, h)
 		}
 	} else {
@@ -45,7 +45,7 @@ func (s *Server) RegisterService(svc Service) {
 	handlers := svc.ListHandlers()
 	for _, h := range handlers {
 		group.Handle(h.Method, h.Path,
-			s.decorateHandler(apiGroup, h.API, h.HandlerFunc))
+			s.decorateHandler(apiGroup, h.Resource, h.HandlerFunc))
 	}
 }
 

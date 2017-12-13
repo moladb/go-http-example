@@ -5,7 +5,7 @@ import (
 )
 
 type Handler struct {
-	API         string
+	Resource    string
 	Path        string
 	Method      string
 	HandlerFunc gin.HandlerFunc
