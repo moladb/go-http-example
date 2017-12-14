@@ -12,9 +12,6 @@ import (
 const maxDataLen int = 512 * 1024
 
 type KVService struct {
-	//config Config
-	//router  *gin.Engine
-	//httpSrv *http.Server
 	kvs    map[string]string
 	kvLock sync.RWMutex
 }
@@ -26,24 +23,33 @@ func NewKVService() *KVService {
 }
 
 func (s *KVService) GetAPIGroup() string {
-	return "/v0/kv"
+	return "/v0"
 }
 
 func (s *KVService) ListHandlers() []rest.Handler {
 	return []rest.Handler{
 		{
-			Method:      "GET",
-			Path:        "/*key",
+			Resource: rest.Resource{
+				Name:   "kv",
+				Method: "GET",
+				Path:   "/kv/*key",
+			},
 			HandlerFunc: getKVHandler(s),
 		},
 		{
-			Method:      "PUT",
-			Path:        "/*key",
+			Resource: rest.Resource{
+				Name:   "kv",
+				Method: "PUT",
+				Path:   "/kv/*key",
+			},
 			HandlerFunc: putKVHandler(s),
 		},
 		{
-			Method:      "DELETE",
-			Path:        "/*key",
+			Resource: rest.Resource{
+				Name:   "kv",
+				Method: "DELETE",
+				Path:   "/kv/*key",
+			},
 			HandlerFunc: deleteKVHandler(s),
 		},
 	}
