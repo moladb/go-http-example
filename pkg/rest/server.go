@@ -2,17 +2,14 @@ package rest
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
-	"net/http/pprof"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/moladb/ginprom"
 	"github.com/moladb/go-http-example/pkg/version"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Server struct {
@@ -42,21 +39,29 @@ func NewServer(config Config) *Server {
 	return s
 }
 
-func (s *Server) RegisterService(svc Service) {
+func (s *Server) RegisterServiceGroup(svc ServiceGroup) {
 	// TODO: register these info into a discovery api
 	apiGroup := svc.GetAPIGroup()
 	apiGroup = "/" + strings.Trim(apiGroup, "/")
 	group := s.router.Group(apiGroup)
 	handlers := svc.ListHandlers()
 	for _, h := range handlers {
-		group.Handle(h.Method, "/"+strings.Trim(h.Path, "/"),
+		group.Handle(h.Method, "/"+strings.TrimLeft(h.Path, "/"),
 			s.decorateHandler(apiGroup, h.Resource.Name, h.HandlerFunc))
-		s.registry.AddResource(apiGroup, h.Resource)
+		s.registry.AddGroupResource(apiGroup, h.Resource)
+	}
+}
+
+func (s *Server) RegisterService(svc Service) {
+	handlers := svc.ListHandlers()
+	for _, h := range handlers {
+		s.router.Handle(h.Method, "/"+strings.TrimLeft(h.Path, "/"),
+			s.decorateHandler("", h.Resource.Name, h.HandlerFunc))
+		s.registry.AddResource(h.Resource)
 	}
 }
 
 func (s *Server) Run() error {
-	// TODO: register discover api
 	s.router.GET("/version", func(c *gin.Context) {
 		c.JSON(http.StatusOK,
 			gin.H{
@@ -65,38 +70,13 @@ func (s *Server) Run() error {
 				"go_version": version.GOVERSION,
 			})
 	})
-	s.router.GET("/apis", func(c *gin.Context) {
-		c.JSON(http.StatusOK,
-			gin.H{
-				"apis": s.registry.ListAPIGroups(),
-			})
-	})
-	s.router.GET("/apis/:apigroup", func(c *gin.Context) {
-		var apiGroup string
-		apiGroup = c.Param("apigroup")
-		rs, ok := s.registry.ListResources(apiGroup)
-		if !ok {
-			c.JSON(http.StatusNotFound,
-				gin.H{
-					"error": fmt.Sprintf("APIGroup:%s not found", apiGroup),
-				})
-			return
-		}
-		c.JSON(http.StatusOK, rs)
-	})
 	if s.config.EnablePProf {
-		s.router.GET("/debug/pprof", ginHandlerFunc(pprof.Index))
-		s.router.GET("/debug/pprof/profile", ginHandlerFunc(pprof.Profile))
-		s.router.GET("/debug/pprof/profile", ginHandlerFunc(pprof.Cmdline))
+		s.RegisterServiceGroup(newPProfService())
 	}
 	if s.config.EnableAPIMetrics {
-		s.router.GET("/metrics", func() gin.HandlerFunc {
-			h := promhttp.Handler()
-			return func(c *gin.Context) {
-				h.ServeHTTP(c.Writer, c.Request)
-			}
-		}())
+		s.RegisterService(newMetricsService())
 	}
+	s.RegisterService(newDiscoveryService(s.registry))
 	s.httpSrv = &http.Server{
 		Addr:    s.config.BindAddr,
 		Handler: s.router,
