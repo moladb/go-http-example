@@ -29,21 +29,27 @@ func (s *KVService) GetAPIGroup() string {
 func (s *KVService) ListHandlers() []rest.Handler {
 	return []rest.Handler{
 		{
-			Resource:    "kv",
-			Method:      "GET",
-			Path:        "/kv/*key",
+			Resource: rest.Resource{
+				Name:   "kv",
+				Method: "GET",
+				Path:   "/kv/*key",
+			},
 			HandlerFunc: getKVHandler(s),
 		},
 		{
-			Resource:    "kv",
-			Method:      "PUT",
-			Path:        "/kv/*key",
+			Resource: rest.Resource{
+				Name:   "kv",
+				Method: "PUT",
+				Path:   "/kv/*key",
+			},
 			HandlerFunc: putKVHandler(s),
 		},
 		{
-			Resource:    "kv",
-			Method:      "DELETE",
-			Path:        "/kv/*key",
+			Resource: rest.Resource{
+				Name:   "kv",
+				Method: "DELETE",
+				Path:   "/kv/*key",
+			},
 			HandlerFunc: deleteKVHandler(s),
 		},
 	}

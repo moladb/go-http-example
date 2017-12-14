@@ -2,9 +2,11 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,16 +20,18 @@ type Server struct {
 	router          *gin.Engine
 	httpSrv         *http.Server
 	decorateHandler func(apiGroup, api string, h gin.HandlerFunc) gin.HandlerFunc
+	registry        *serviceRegistry
 }
 
 func NewServer(config Config) *Server {
 	s := &Server{
-		config: config,
-		router: gin.Default(),
+		config:   config,
+		router:   gin.Default(),
+		registry: newServiceRegistry(),
 	}
 	if config.EnableAPIMetrics {
 		s.decorateHandler = func(apiGroup, resource string, h gin.HandlerFunc) gin.HandlerFunc {
-			path := apiGroup + resource
+			path := "/" + strings.Trim(apiGroup, "/") + "/" + strings.Trim(resource, "/")
 			return ginprom.WithMetrics(path, h)
 		}
 	} else {
@@ -41,11 +45,13 @@ func NewServer(config Config) *Server {
 func (s *Server) RegisterService(svc Service) {
 	// TODO: register these info into a discovery api
 	apiGroup := svc.GetAPIGroup()
+	apiGroup = "/" + strings.Trim(apiGroup, "/")
 	group := s.router.Group(apiGroup)
 	handlers := svc.ListHandlers()
 	for _, h := range handlers {
-		group.Handle(h.Method, h.Path,
-			s.decorateHandler(apiGroup, h.Resource, h.HandlerFunc))
+		group.Handle(h.Method, "/"+strings.Trim(h.Path, "/"),
+			s.decorateHandler(apiGroup, h.Resource.Name, h.HandlerFunc))
+		s.registry.AddResource(apiGroup, h.Resource)
 	}
 }
 
@@ -60,11 +66,23 @@ func (s *Server) Run() error {
 			})
 	})
 	s.router.GET("/apis", func(c *gin.Context) {
-		// return RegisterService api
 		c.JSON(http.StatusOK,
 			gin.H{
-				"apis": "TODO",
+				"apis": s.registry.ListAPIGroups(),
 			})
+	})
+	s.router.GET("/apis/:apigroup", func(c *gin.Context) {
+		var apiGroup string
+		apiGroup = c.Param("apigroup")
+		rs, ok := s.registry.ListResources(apiGroup)
+		if !ok {
+			c.JSON(http.StatusNotFound,
+				gin.H{
+					"error": fmt.Sprintf("APIGroup:%s not found", apiGroup),
+				})
+			return
+		}
+		c.JSON(http.StatusOK, rs)
 	})
 	if s.config.EnablePProf {
 		s.router.GET("/debug/pprof", ginHandlerFunc(pprof.Index))
